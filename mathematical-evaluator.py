@@ -1,12 +1,12 @@
 def tokenize(text: str):
-    # Separates the operators from the operands, where operands are strings of alphanumeric characters and anything else is considered an operator.
+    # Separates the operators from the operands, where operands are strings of alphanumeric characters (possibly including '.'s) and anything else is considered an operator.
     # All operators (which include parentheses) are single character sequences, while operands are as long as possible before hitting an operator.
     tokens = []
     current_operand = ""
     for character in text:
         if character == ' ':
             continue
-        if character.isalnum():
+        if character.isalnum() or character == '.':
             current_operand += character
         else:
             if current_operand:
@@ -17,6 +17,21 @@ def tokenize(text: str):
         tokens.append(current_operand)
     return tokens
 
+def valid_number(text:str):
+    # A valid number is a sequence of digits, optionally followed by a decimal point and more digits.
+    # The number can also be preceded by a '-' sign.
+    if text[0] == '-':
+        text = text[1:]
+    decimal_point_count = 0
+    for character in text:
+        if character == '.':
+            decimal_point_count += 1
+            if decimal_point_count > 1:
+                return False
+        elif not character.isdigit():
+            return False
+    return True
+
 def evaluate_expression(tokens: list[str], variables: dict[str, float]):
     # Replace variable names with their values:
     for i, token in enumerate(tokens):
@@ -25,6 +40,26 @@ def evaluate_expression(tokens: list[str], variables: dict[str, float]):
                 tokens[i] = str(variables[token])
             else:
                 raise ValueError(f"Undefined variable {token}")
+        elif not valid_number(token):
+            raise ValueError(f"Invalid token {token}")
+
+    # Sort out negative numbers.
+    # A negative number can be identified by the fact that there will be a '-' operator with no number to its left.
+    # We just check that the next token is a number, and if so place the - into the number and remove the operator.
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token == '-':
+            if i == 0 or not valid_number(tokens[i-1]):
+                if i == len(tokens) - 1:
+                    raise ValueError("Invalid expression")
+                if valid_number(tokens[i+1]):
+                    tokens[i+1] = '-' + tokens[i+1]
+                    del tokens[i]
+                    i -= 1
+                else:
+                    raise ValueError("Invalid expression")
+        i += 1
 
     # First evaluate parentheses, then ^, then * and /, then + and -.
 
@@ -44,6 +79,7 @@ def evaluate_expression(tokens: list[str], variables: dict[str, float]):
                     depth -= 1
                     if depth == 0:
                         closing_index = j + opening_index + 1
+                        break
             if closing_index is None:
                 print(tokens)
                 raise ValueError("Unclosed parenthesis")
@@ -55,8 +91,9 @@ def evaluate_expression(tokens: list[str], variables: dict[str, float]):
         i += 1
 
     # Find a^b and replace it with the computed result.
-    i = 0
-    while i < len(tokens):
+    i = 1 # Don't check 1 because we need a token before and after.
+          # If there was an operator at index 0 or len(tokens)-1, then it will still be there at the end of this function and the code will detect a syntax error.
+    while i < len(tokens) - 1:
         token = tokens[i]
         if token == '^':
             left = float(tokens[i-1])
@@ -67,8 +104,8 @@ def evaluate_expression(tokens: list[str], variables: dict[str, float]):
         i += 1
 
     # Find * and / and replace them with the computed result.
-    i = 0
-    while i < len(tokens):
+    i = 1
+    while i < len(tokens) - 1:
         token = tokens[i]
         if token == '*':
             left = float(tokens[i-1])
@@ -87,8 +124,8 @@ def evaluate_expression(tokens: list[str], variables: dict[str, float]):
         i += 1
     
     # Same for + and -.
-    i = 0
-    while i < len(tokens):
+    i = 1
+    while i < len(tokens) - 1:
         token = tokens[i]
         if token == '+':
             left = float(tokens[i-1])
@@ -132,10 +169,9 @@ while True:
             expression = command_tokens[2:]
             value = evaluate_expression(expression, variables)
             variables[variable_name] = value
-            print(value)
+            print(round(value, 2))
         else:
             value = evaluate_expression(command_tokens, variables)
-            print(value)
+            print(round(value, 2))
     except ValueError as e:
         print(e)
-        continue
