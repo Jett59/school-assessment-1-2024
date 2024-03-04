@@ -32,6 +32,14 @@ def valid_number(text:str):
             return False
     return True
 
+valid_operators = ['+', '-', '*', '/', '^', '(', ')']
+
+def parse_number(text):
+    try:
+        return float(text)
+    except ValueError as e:
+        raise ValueError(f"Invalid number {text}")
+
 def evaluate_expression(tokens: list[str], variables: dict[str, float]):
     # Replace variable names with their values:
     for i, token in enumerate(tokens):
@@ -40,28 +48,10 @@ def evaluate_expression(tokens: list[str], variables: dict[str, float]):
                 tokens[i] = str(variables[token])
             else:
                 raise ValueError(f"Undefined variable {token}")
-        elif not valid_number(token):
+        elif not valid_number(token) and not token in valid_operators:
             raise ValueError(f"Invalid token {token}")
 
-    # Sort out negative numbers.
-    # A negative number can be identified by the fact that there will be a '-' operator with no number to its left.
-    # We just check that the next token is a number, and if so place the - into the number and remove the operator.
-    i = 0
-    while i < len(tokens):
-        token = tokens[i]
-        if token == '-':
-            if i == 0 or not valid_number(tokens[i-1]):
-                if i == len(tokens) - 1:
-                    raise ValueError("Invalid expression")
-                if valid_number(tokens[i+1]):
-                    tokens[i+1] = '-' + tokens[i+1]
-                    del tokens[i]
-                    i -= 1
-                else:
-                    raise ValueError("Invalid expression")
-        i += 1
-
-    # First evaluate parentheses, then ^, then * and /, then + and -.
+    # First evaluate parentheses, then ^, then negative numbers, then * and /, then + and -.
 
     # Find the open parenthesis.
     i = 0
@@ -81,7 +71,6 @@ def evaluate_expression(tokens: list[str], variables: dict[str, float]):
                         closing_index = j + opening_index + 1
                         break
             if closing_index is None:
-                print(tokens)
                 raise ValueError("Unclosed parenthesis")
             # replace the entire expression with the evaluated result.
             value = evaluate_expression(tokens[opening_index+1:closing_index], variables)
@@ -96,11 +85,32 @@ def evaluate_expression(tokens: list[str], variables: dict[str, float]):
     while i < len(tokens) - 1:
         token = tokens[i]
         if token == '^':
-            left = float(tokens[i-1])
-            right = float(tokens[i+1])
+            left = parse_number(tokens[i-1])
+            right = parse_number(tokens[i+1])
+            result = left ** right
+            if isinstance(result, complex):
+                raise ValueError("Invalid base for exponent")
             del tokens[i-1:i+2]
             tokens.insert(i-1, str(left ** right))
             i -= 2
+        i += 1
+
+    # Sort out negative numbers.
+    # A negative number can be identified by the fact that there will be a '-' operator with no number to its left.
+    # We just check that the next token is a number, and if so place the - into the number and remove the operator.
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token == '-':
+            if i == 0 or not valid_number(tokens[i-1]):
+                if i == len(tokens) - 1:
+                    raise ValueError("Invalid expression")
+                if valid_number(tokens[i+1]):
+                    tokens[i+1] = '-' + tokens[i+1]
+                    del tokens[i]
+                    i -= 1
+                else:
+                    raise ValueError("Invalid expression")
         i += 1
 
     # Find * and / and replace them with the computed result.
@@ -108,14 +118,14 @@ def evaluate_expression(tokens: list[str], variables: dict[str, float]):
     while i < len(tokens) - 1:
         token = tokens[i]
         if token == '*':
-            left = float(tokens[i-1])
-            right = float(tokens[i+1])
+            left = parse_number(tokens[i-1])
+            right = parse_number(tokens[i+1])
             del tokens[i-1:i+2]
             tokens.insert(i-1, str(left * right))
             i -= 2
         elif token == '/':
-            left = float(tokens[i-1])
-            right = float(tokens[i+1])
+            left = parse_number(tokens[i-1])
+            right = parse_number(tokens[i+1])
             del tokens[i-1:i+2]
             if right == 0:
                 raise ValueError("Division by zero")
@@ -128,14 +138,14 @@ def evaluate_expression(tokens: list[str], variables: dict[str, float]):
     while i < len(tokens) - 1:
         token = tokens[i]
         if token == '+':
-            left = float(tokens[i-1])
-            right = float(tokens[i+1])
+            left = parse_number(tokens[i-1])
+            right = parse_number(tokens[i+1])
             del tokens[i-1:i+2]
             tokens.insert(i-1, str(left + right))
             i -= 2
         elif token == '-':
-            left = float(tokens[i-1])
-            right = float(tokens[i+1])
+            left = parse_number(tokens[i-1])
+            right = parse_number(tokens[i+1])
             del tokens[i-1:i+2]
             tokens.insert(i-1, str(left - right))
             i -= 2
@@ -143,7 +153,7 @@ def evaluate_expression(tokens: list[str], variables: dict[str, float]):
 
     # If we have a single token left, it's the result.
     if len(tokens) == 1:
-        return float(tokens[0])
+        return parse_number(tokens[0])
     else:
         raise ValueError("Invalid expression")
 
@@ -154,6 +164,14 @@ def check_variable_name(variable_name: str):
     for character in variable_name:
         if not character.isalnum():
             raise ValueError("Invalid variable name")
+
+# Check that it does what we expect for some simple examples:
+assert evaluate_expression(tokenize('1+2+3'), {}) == 6.0
+assert evaluate_expression(tokenize('1+2+a'), {'a': 6.0}) == 9.0
+assert evaluate_expression(tokenize('2*(3+4)'), {}) == 14.0
+assert evaluate_expression(tokenize('-1^2'), {}) == -1.0
+assert evaluate_expression(tokenize('(2*(3+4))^2'), {}) == 196.0
+assert evaluate_expression(tokenize('1/2*1/2*2'), {}) == 0.5
 
 variables = {}
 
