@@ -34,12 +34,11 @@ def calculate_key_offsets(key):
 # REF: https://pi.math.cornell.edu/~mec/2003-2004/cryptography/subs/frequencies.html
 alphabetic_frequencies = [0.0812, 0.0149, 0.0271, 0.0432, 0.1202, 0.0230, 0.0203, 0.0592, 0.0731, 0.0010, 0.0069, 0.0398, 0.0261, 0.0695, 0.0768, 0.0182, 0.0011, 0.0602, 0.0628, 0.0910, 0.0288, 0.0111, 0.0209, 0.0017, 0.0211, 0.0007]
 
-def calculate_error(letters: list[str], offset: int):
+# Calculates how well the letters match the expected frequencies, given a certain offset.
+def calculate_error(letters: str):
     letter_occurrences = [0] * 26
     for letter in letters:
-        # We subtract the offset since we are working out what offset was applied, not what offset we should apply to undo it.
-        # If this results in a negative number, python will automatically wrap it around to the end of the list, achieving the correct behavior.
-        letter_occurrences[alphabetic_index(letter) - offset] += 1
+        letter_occurrences[alphabetic_index(letter)] += 1
     error = 0
     for i in range(26):
         error += (letter_occurrences[i] / len(letters) - alphabetic_frequencies[i]) ** 2
@@ -54,7 +53,8 @@ def find_optimal_offset(letters: list[str]):
     # The error is calculated as the sum of the squares of the differences from the expected frequencies.
     calculated_errors = []
     for offset in range(26):
-        calculated_errors.append((offset, calculate_error(letters, offset)))
+        transformed_letters = [to_letter((alphabetic_index(letter) + offset) % 26) for letter in letters]
+        calculated_errors.append((offset, calculate_error(transformed_letters)))
 
     calculated_errors.sort(key=lambda x: x[1])
     certainty = (calculated_errors[1][1] - calculated_errors[0][1]) / calculated_errors[0][1]
@@ -74,8 +74,9 @@ def find_key(cipher_text: str, key_length: int):
     offsets = []
     total_certainty = 0
     for text in split_text:
-        offset, certainty = find_optimal_offset(text)
-        offsets.append(offset)
+        # Since the find_optimal_offset function returns the offset *forwards* to the best match, we have to negate it because we are deciphering, which negates the key.
+        reverse_offset, certainty = find_optimal_offset(text)
+        offsets.append((-reverse_offset) % 26)
         total_certainty += certainty
     certainty = total_certainty / key_length
     key = [to_letter(offset) for offset in offsets]
@@ -85,6 +86,7 @@ def decipher_without_key(cipher_text: str):
     # We look for the key with the highest certainty, with a length up to the length of the cipher text.
     candidate_keys = [find_key(cipher_text, key_length) for key_length in range(1, len(cipher_text))]
     candidate_keys.sort(key=lambda x: x[1])
+    print([''.join(key) for key, certainty in candidate_keys])
     key = ''.join(candidate_keys[-1][0])
     return key, decipher(cipher_text, calculate_key_offsets(key))
 
