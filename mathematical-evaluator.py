@@ -178,6 +178,8 @@ variables = {}
 while True:
     try:
         command = input(">")
+        if command.strip().lower() == '.exit':
+            break
         command_tokens = tokenize(command)
         if len(command_tokens) == 0:
             continue

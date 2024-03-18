@@ -86,14 +86,15 @@ def decipher_without_key(cipher_text: str):
     # We look for the key with the highest certainty, with a length up to the length of the cipher text.
     candidate_keys = [find_key(cipher_text, key_length) for key_length in range(1, len(cipher_text))]
     candidate_keys.sort(key=lambda x: x[1])
-    print([''.join(key) for key, certainty in candidate_keys])
     key = ''.join(candidate_keys[-1][0])
     return key, decipher(cipher_text, calculate_key_offsets(key))
 
 # The main loop, which delegates to the appropriate function based on user input.
 while True:
-    action = input('"cipher" or "decipher"? ')
-    if action == "cipher":
+    action = input('"cipher", "decipher" or "exit"? ')
+    if action == "exit":
+        break
+    elif action == "cipher":
         text = input('Enter the text to cipher: ')
         key = input('Enter the key: ')
         if len(key) < 1:
@@ -109,6 +110,8 @@ while True:
                 continue
             print('Attempting to automatically determine the key...')
             key, clear_text = decipher_without_key(text)
+            if len(key) > len(text) // 20:
+                print("WARNING: There was not enough text to accurately determine the key.")
             print(f'Key: {key}')
             print(clear_text)
         else:
