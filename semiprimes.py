@@ -23,34 +23,36 @@ def find_primes(limit):
             primes.append(candidate)
     return primes
 
-def find_semiprimes(limit):
-    primes = find_primes(limit // 2)
+def find_semiprimes(min, max):
+    primes = find_primes(max // 2)
     result = []
 
     for i in range(len(primes)):
         for j in range(i, len(primes)):
             semiprime = primes[i] * primes[j]
-            if semiprime <= limit:
-                result.append(semiprime)
+            if semiprime <= max:
+                if semiprime >= min:
+                    result.append(semiprime)
             else:
-                break
+                break # The next primes are all larger, so they will all be too big.
     return result
 
 try:
-    limit = int(input("Semiprimes up to: "))
+    min = int(input("Min: "))
+    max = int(input("Max: "))
 except ValueError:
     print("Invalid input")
     exit()
 
-if limit < 1:
+if min > max or max < 1:
     print("Invalid input")
     exit()
 
-semiprimes = find_semiprimes(limit)
+semiprimes = find_semiprimes(min, max)
 
 if len(semiprimes) != 1:
-    print(f"There are {len(semiprimes)} semiprimes below {limit}")
+    print(f"There are {len(semiprimes)} semiprimes between {min} and {max}")
 else:
-    print(f"There is 1 semiprime below {limit}")
+    print(f"There is 1 semiprime between {min} and {max}")
 
 print(sorted(semiprimes))
